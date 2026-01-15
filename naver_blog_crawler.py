@@ -40,7 +40,7 @@ st.markdown("""
         border-radius: 10px;
         overflow: hidden;
         box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        margin-bottom: 20px;
+        margin-bottom: -25px;
         border: 1px solid #333;
     }
     
@@ -694,9 +694,9 @@ if submitted and user_input:
     st.markdown(f"""
     <div class="analyzing-msg">
         <span style="color: #5cb85c;">[EXEC]</span> Analyzing blog: <span style="color: #edc5c4;">{blog_id}</span><br>
-        <span style="color: #5cb85c;">[INFO]</span> Fetching visitor data...<br>
-        <span style="color: #5cb85c;">[INFO]</span> Scanning latest post...<br>
-        <span style="color: #5cb85c;">[INFO]</span> Checking search exposure...
+        <span style="color: #5cb85c;">[INFO]</span> 이 프로그램은 저희가 직접 사용할려고 개발한<br>
+        <span style="color: #5cb85c;">[INFO]</span> 프로그램으로 오류에 대한 책임은 지지 않습니다.<br>
+        <span style="color: #5cb85c;">[INFO]</span> 해당 블로그에 꼭 한번 들어가셔서 확인 부탁드립니다.
     </div>
     """, unsafe_allow_html=True)
     
