@@ -11,15 +11,15 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- 1. 페이지 기본 설정 ---
-st.set_page_config(page_title="베리굿 블로그 판독기 v2.0", page_icon="🍫")
+st.set_page_config(page_title="베리굿 블로그 판독기 (엄격버전)", page_icon="🍫")
 
-st.title("🍫 베리굿 블로그 판독기 v2.0")
+st.title("🍫 베리굿 블로그 판독기 (엄격버전)")
 st.markdown("""
 **[정밀 분석기]** 네이버 블로그 ID를 입력하면  
-**방문자 수, 최신글 상세 분석, 검색 노출 상태**까지 한눈에 볼 수 있어요!
+**방문자 수, 최신글 상세 분석, 검색 노출 상태(엄격)**까지 한눈에 볼 수 있어요!
 """)
 
-# --- 2. 서버용 강력한 드라이버 설정 (건드리지 마!) ---
+# --- 2. 서버용 강력한 드라이버 설정 ---
 @st.cache_resource
 def get_driver():
     chrome_options = Options()
@@ -29,7 +29,7 @@ def get_driver():
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1")
     
-    # 서버 경로 강제 지정 (packages.txt가 설치한 경로)
+    # 서버 경로 강제 지정
     possible_paths = [
         "/usr/bin/chromium", 
         "/usr/bin/chromium-browser",
@@ -55,7 +55,6 @@ def get_driver():
 
 # --- 3. 유틸리티 함수들 ---
 def parse_visitor_text(text):
-    """방문자 수 텍스트에서 숫자만 추출"""
     today = "0"
     total = "0"
     try:
@@ -70,11 +69,8 @@ def parse_visitor_text(text):
         pass
     return today, total
 
-
 def parse_date(date_text):
-    """날짜 텍스트를 파싱해서 datetime 객체로 변환"""
     try:
-        # "2024. 1. 15." 또는 "2024.1.15" 형식 처리
         clean_text = date_text.replace(" ", "").strip(".")
         parts = clean_text.split(".")
         if len(parts) >= 3:
@@ -86,18 +82,13 @@ def parse_date(date_text):
         pass
     return None
 
-
 def is_within_one_month(date_obj):
-    """날짜가 최근 1개월 이내인지 확인"""
-    if not date_obj:
-        return False
+    if not date_obj: return False
     one_month_ago = datetime.now() - timedelta(days=30)
     return date_obj >= one_month_ago
 
-
-# --- 4. 블로그 기본 정보 + 최신글 URL 가져오기 ---
+# --- 4. 블로그 기본 정보 가져오기 ---
 def get_blog_info(blog_id):
-    """블로그 메인에서 기본 정보와 최신글 URL을 가져옴"""
     driver = get_driver()
     result = {
         "today_visitors": "확인 불가",
@@ -111,13 +102,8 @@ def get_blog_info(blog_id):
         driver.get(url)
         time.sleep(2.5)
         
-        # 방문자 수 찾기
-        visitor_selectors = [
-            "div[class^='count__']", "div[class*='count']", 
-            "span[class^='count__']", "span[class*='count']",
-            ".count.total"
-        ]
-        
+        # 방문자 수
+        visitor_selectors = [".count.total", "div[class^='count__']", ".count"]
         for selector in visitor_selectors:
             try:
                 elem = driver.find_element(By.CSS_SELECTOR, selector)
@@ -128,50 +114,32 @@ def get_blog_info(blog_id):
             except:
                 continue
         
-        # 최신글 제목 및 URL 찾기
-        post_selectors = [
-            "a[class*='title']",
-            "a.title",
-            "div[class^='list__'] a",
-            ".post_title a",
-            "a[href*='/PostView']",
-        ]
-        
+        # 최신글 URL 찾기
+        post_selectors = ["strong[class*='title__']", ".list_post_article a.title", "a.title"]
         for selector in post_selectors:
             try:
                 elem = driver.find_element(By.CSS_SELECTOR, selector)
-                href = elem.get_attribute("href")
                 title = elem.text.strip()
+                href = elem.get_attribute("href")
+                if not href:
+                    parent = elem.find_element(By.XPATH, "./ancestor::a")
+                    href = parent.get_attribute("href")
                 
-                if href and ("blog.naver.com" in href or "/PostView" in href or blog_id in href):
-                    if title and len(title) > 1:
+                if title and len(title) > 2 and "사진 개수" not in title:
+                    if href and blog_id in href:
                         result["latest_post_title"] = title
-                    result["latest_post_url"] = href
-                    break
+                        result["latest_post_url"] = href
+                        break
             except:
                 continue
-        
-        # 못 찾으면 XPath로 시도
-        if not result["latest_post_url"]:
-            try:
-                elem = driver.find_element(By.XPATH, "//a[contains(@href, 'blog.naver.com') and contains(@href, '/')]")
-                href = elem.get_attribute("href")
-                if href and blog_id in href:
-                    result["latest_post_url"] = href
-                    if not result["latest_post_title"] or result["latest_post_title"] == "글 없음":
-                        result["latest_post_title"] = elem.text.strip() or "제목 없음"
-            except:
-                pass
                 
     except Exception as e:
-        print(f"Error getting blog info: {e}")
+        print(f"Error: {e}")
         
     return result
 
-
-# --- 5. 상세 페이지 분석 (핵심 업그레이드!) ---
+# --- 5. 상세 페이지 분석 (iframe 대응) ---
 def analyze_post_detail(post_url):
-    """최신글 상세 페이지에 들어가서 정밀 분석"""
     driver = get_driver()
     result = {
         "publish_date": "확인 불가",
@@ -182,298 +150,224 @@ def analyze_post_detail(post_url):
         "comment_count": "0"
     }
     
-    if not post_url:
-        return result
+    if not post_url: return result
+    is_in_iframe = False
     
     try:
         driver.get(post_url)
-        time.sleep(3)  # 상세 페이지 로딩 대기
+        time.sleep(3)
         
-        # 1. 발행 날짜 추출 (다양한 에디터 버전 대응)
-        date_selectors = [
-            ".se_publishDate",
-            ".blog_date",
-            ".date",
-            ".fil5",
-            ".se-date",
-            "span[class*='date']",
-            "p[class*='date']",
-            "span[class*='_postDate']",
-            "time",
-        ]
+        # iframe 진입
+        try:
+            driver.switch_to.frame("mainFrame")
+            is_in_iframe = True
+            time.sleep(1)
+        except:
+            pass
         
+        # 날짜 찾기
+        date_selectors = [".se_publishDate", ".blog_date", ".date", ".fil5", "span[class*='date']"]
         for selector in date_selectors:
             try:
                 elem = driver.find_element(By.CSS_SELECTOR, selector)
                 date_text = elem.text.strip()
-                if date_text and re.search(r'\d{4}', date_text):
+                if date_text:
                     result["publish_date"] = date_text
                     result["publish_date_obj"] = parse_date(date_text)
                     break
             except:
                 continue
-        
-        # 2. 본문 글자 수 (공백 제외)
-        content_selectors = [
-            "div[class*='post_ct']",
-            "div[class*='content']",
-            ".se-main-container",
-            "#postViewArea",
-            "article",
-            ".post_content",
-        ]
-        
-        for selector in content_selectors:
-            try:
-                elem = driver.find_element(By.CSS_SELECTOR, selector)
-                text = elem.text.strip()
-                # 공백 제외 글자 수
-                char_count = len(text.replace(" ", "").replace("\n", "").replace("\t", ""))
-                if char_count > result["char_count"]:
-                    result["char_count"] = char_count
-            except:
-                continue
-        
-        # 3. 이미지 개수 (순수 본문 이미지만 카운트)
+                
+        # 본문 내용 (글자 수)
         try:
-            images = driver.find_elements(By.CSS_SELECTOR, "img")
-            valid_images = 0
-            for img in images:
-                src = img.get_attribute("src") or ""
-                img_class = img.get_attribute("class") or ""
+            content = driver.find_element(By.CSS_SELECTOR, ".se-main-container")
+            text = content.text.strip()
+        except:
+            try:
+                content = driver.find_element(By.CSS_SELECTOR, "#postViewArea")
+                text = content.text.strip()
+            except:
+                text = ""
+                try:
+                    text = driver.find_element(By.TAG_NAME, "body").text
+                except: pass
+
+        result["char_count"] = len(text.replace(" ", "").replace("\n", ""))
+        
+        # 이미지 개수 (정밀 필터링 + 네이버 도메인 대응)
+        try:
+            if is_in_iframe:
+                imgs = driver.find_elements(By.TAG_NAME, "img")
+            else:
+                imgs = driver.find_elements(By.CSS_SELECTOR, ".se-main-container img")
+                if not imgs:
+                    imgs = driver.find_elements(By.TAG_NAME, "img")
                 
-                # 제외 조건: 스티커, 아이콘, 프로필, 좋아요 아이콘 등
-                skip_keywords_class = ["sticker", "icon", "profile"]
-                skip_keywords_src = ["l.blog.naver"]
+            valid_cnt = 0
+            for img in imgs:
+                src = img.get_attribute("src") or img.get_attribute("data-src") or ""
+                cls = img.get_attribute("class") or ""
                 
-                should_skip = False
-                for keyword in skip_keywords_class:
-                    if keyword in img_class.lower():
-                        should_skip = True
-                        break
+                # 제외: 스티커, 아이콘, 프로필
+                if "sticker" in cls or "icon" in cls or "profile" in cls: continue
+                if "l.blog.naver" in src: continue  # 좋아요 아이콘
                 
-                if not should_skip:
-                    for keyword in skip_keywords_src:
-                        if keyword in src:
-                            should_skip = True
-                            break
-                
-                if should_skip:
-                    continue
-                
-                # 본문 이미지만 카운트 (postfiles 또는 blogfiles 포함)
-                if "postfiles" in src or "blogfiles" in src:
-                    valid_images += 1
-                    
-            result["image_count"] = valid_images
+                # 네이버 본문 이미지 도메인 체크
+                valid_domains = ["postfiles", "blogfiles", "pstatic.net", "naver.net", "blogpfthumb"]
+                if any(d in src for d in valid_domains):
+                    valid_cnt += 1
+            result["image_count"] = valid_cnt
         except:
             pass
+            
+        # 공감 수
+        try:
+            like = driver.find_element(By.CSS_SELECTOR, "em[class*='u_cnt']").text
+            result["like_count"] = like
+        except: pass
         
-        # 4. 공감(하트) 수
-        like_selectors = [
-            "span[class*='like_cnt']",
-            "em[class*='u_cnt']",
-            ".sympathy_cnt",
-            "span[class*='count']",
-            ".like_count",
-        ]
-        
-        for selector in like_selectors:
-            try:
-                elem = driver.find_element(By.CSS_SELECTOR, selector)
-                text = elem.text.strip()
-                numbers = re.findall(r'\d+', text)
-                if numbers:
-                    result["like_count"] = numbers[0]
-                    break
-            except:
-                continue
-        
-        # 5. 댓글 수
-        comment_selectors = [
-            "span[class*='comment_cnt']",
-            "em[class*='_count']",
-            ".comment_count",
-            "a[class*='comment'] span",
-        ]
-        
-        for selector in comment_selectors:
-            try:
-                elem = driver.find_element(By.CSS_SELECTOR, selector)
-                text = elem.text.strip()
-                numbers = re.findall(r'\d+', text)
-                if numbers:
-                    result["comment_count"] = numbers[0]
-                    break
-            except:
-                continue
-                
+        # 댓글 수
+        try:
+            cmt = driver.find_element(By.CSS_SELECTOR, "em[class*='_count']").text
+            result["comment_count"] = cmt
+        except: pass
+
     except Exception as e:
-        print(f"Error analyzing post: {e}")
-        
+        print(e)
+    finally:
+        if is_in_iframe:
+            try: driver.switch_to.default_content()
+            except: pass
+            
     return result
 
-
-# --- 6. 검색 노출 확인 ---
+# --- 6. 검색 노출 확인 (★ 엄격 모드 - 핵심 키워드만 검색) ---
 def check_search_exposure(blog_id, post_title):
-    """네이버 검색에서 해당 블로그가 노출되는지 확인"""
-    if post_title == "글 없음" or not post_title:
-        return False, "제목을 못 찾아서 검색 불가"
+    if not post_title or post_title == "글 없음":
+        return False, "제목 없음"
         
     driver = get_driver()
     try:
-        encoded_query = urllib.parse.quote(f'"{post_title}"')
-        search_url = f"https://m.search.naver.com/search.naver?where=m_view&query={encoded_query}"
+        # ★ 핵심 키워드만 추출 (처음 2~3단어만 사용해서 실제 경쟁력 테스트)
+        clean_title = re.sub(r'[^\w\s가-힣]', ' ', post_title).strip()
+        words = clean_title.split()
         
+        # 의미 없는 단어 제거
+        stopwords = ["더", "그", "이", "저", "및", "등", "를", "을", "의", "에", "로", "나", "하다", "하는", "합니다"]
+        keywords = [w for w in words if w not in stopwords and len(w) > 1]
+        
+        # 핵심 키워드 2~3개만 사용 (너무 특정적이면 1위 뜨는 건 당연)
+        if len(keywords) > 3:
+            keywords = keywords[:3]
+        
+        search_query = " ".join(keywords)
+        if not search_query:
+            search_query = clean_title[:20]  # 폴백
+            
+        encoded_query = urllib.parse.quote(search_query)
+        
+        # VIEW 탭 기준 검색
+        search_url = f"https://m.search.naver.com/search.naver?where=m_view&query={encoded_query}"
         driver.get(search_url)
         time.sleep(2)
         
-        page_source = driver.page_source
+        # 상위 검색 결과에서 블로그 링크 가져오기
+        result_links = driver.execute_script("""
+            var links = [];
+            var allLinks = document.querySelectorAll('a[href*="blog.naver.com"]');
+            for(var i=0; i<allLinks.length && links.length < 20; i++){
+                var href = allLinks[i].href;
+                if(href && !href.includes('ad.search') && !href.includes('ader.naver')){
+                    if(links.indexOf(href) === -1) links.push(href);
+                }
+            }
+            return links;
+        """)
         
-        if blog_id in page_source:
-            return True, "검색 결과 상단 노출 중! ✨"
-        else:
-            return False, "검색 결과 1페이지에 없음"
-            
+        if not result_links:
+            if blog_id in driver.page_source:
+                return False, "⚠️ 검색은 되나 상위권 아님"
+            return False, "❌ 검색 결과 없음"
+        
+        # 순위 판독 (엄격 기준)
+        for i, link in enumerate(result_links):
+            if f"blog.naver.com/{blog_id}" in link:
+                rank = i + 1
+                if rank == 1:
+                    return True, f"🏅 1위! 키워드({search_query}) 최적화"
+                elif rank <= 3:
+                    return True, f"✅ {rank}위 - 경쟁력 있음"
+                elif rank <= 10:
+                    return False, f"⚠️ {rank}위 - 상위권 진입 필요"
+                else:
+                    return False, f"❌ {rank}위 - 노출 약함"
+                    
+        return False, f"❌ 20위권 밖 (키워드: {search_query})"
+        
     except Exception as e:
-        return False, f"검색 중 에러: {e}"
-
+        return False, f"에러: {e}"
 
 # --- 7. UI 구성 ---
+def extract_blog_id(text):
+    if not text: return ""
+    if "blog.naver.com" in text:
+        parts = text.split("/")
+        for p in parts:
+            if p and "http" not in p and "blog.naver" not in p:
+                return p
+    return text
+
 st.divider()
 
-def extract_blog_id(input_value):
-    """
-    사용자 입력에서 블로그 ID를 추출합니다.
-    - 전체 URL 입력 시: https://blog.naver.com/ID 등에서 ID 추출
-    - ID만 입력 시: 그대로 반환
-    """
-    if not input_value:
-        return ""
-    
-    input_value = input_value.strip()
-    
-    # URL인 경우
-    if "blog.naver.com" in input_value:
-        try:
-            # https://blog.naver.com/myid
-            # https://m.blog.naver.com/myid
-            parsed = urllib.parse.urlparse(input_value)
-            path_parts = parsed.path.split('/')
-            # path가 /myid 또는 /Start.naver 등이 섞여있을 수 있음
-            for part in path_parts:
-                if part and part not in ["PostView.naver", "MyBlog.naver", "Start.naver"]:
-                     # 보통 ID는 영문+숫자 조합이므로 간단한 필터링 가능하지만
-                     # 네이버 블로그 URL 구조상 blog.naver.com/ 바로 뒤가 ID임
-                     # m.blog.naver.com/ID
-                     return part
-        except:
-            pass
-            
-    # 그 외 패턴 (예: https://.../ID/...) 처리 혹은 단순 ID로 간주
-    # 단순하게 마지막 슬래시 뒤를 가져오는 방식 등 보완 가능하나
-    # 일단 'blog.naver.com/' 뒤에 오는 첫번째 경로를 ID로 보는 것이 가장 정확함
-    
-    # URL 파싱이 어렵거나 URL이 아닌 경우 입력값 그대로 반환 (ID만 입력했다고 가정)
-    # 다만 'http'가 포함되어있으면 URL로 의심되므로 정제 시도
-    if input_value.startswith("http"):
-         # 다시 시도: blog.naver.com이 없는데 http로 시작하는 경우? (거의 없음)
-         # 예: https://id.blog.me (구형 도메인) -> 지원 안함
-         pass
+with st.form("main_form"):
+    user_input = st.text_input("🔍 블로그 ID 또는 주소 입력", placeholder="예: nam9295")
+    submitted = st.form_submit_button("분석 시작 🚀", type="primary", use_container_width=True)
 
-    return input_value
-
-
-with st.form(key='lookup_form'):
-    blog_id_input = st.text_input("🔍 조회할 블로그 ID (또는 블로그 주소)", placeholder="예: verygood_choco 또는 https://blog.naver.com/verygood_choco")
+if submitted and user_input:
+    blog_id = extract_blog_id(user_input)
     
-    # Enter 키로도 제출됨
-    submit_button = st.form_submit_button("정밀 분석 시작 🚀", type="primary", use_container_width=True)
-
-if submit_button:
-    if not blog_id_input:
-        st.warning("아이디를 입력해주세요!")
-    else:
-        # 스마트 추출 적용
-        blog_id = extract_blog_id(blog_id_input)
-        
-        # Step 1: 블로그 기본 정보 가져오기
-        with st.spinner(f"📡 '{blog_id}' 블로그 기본 정보 수집 중..."):
-            info = get_blog_info(blog_id)
+    with st.spinner(f"'{blog_id}' 정밀 분석 중..."):
+        info = get_blog_info(blog_id)
         
         st.divider()
-        st.subheader("📊 기본 정보")
-        
-        col1, col2 = st.columns(2)
-        col1.metric("👤 오늘 방문자", info["today_visitors"])
-        col2.metric("📈 전체 방문자", info["total_visitors"])
-        
-        # Step 2: 최신글 상세 분석
-        st.divider()
-        st.subheader("📝 최신글 정밀 분석")
+        c1, c2 = st.columns(2)
+        c1.metric("오늘 방문자", info["today_visitors"])
+        c2.metric("전체 방문자", info["total_visitors"])
         
         if info['latest_post_url']:
-            st.info(f"**제목:** {info['latest_post_title']}")
+            detail = analyze_post_detail(info['latest_post_url'])
             
-            with st.spinner("🔬 최신글 상세 페이지 분석 중..."):
-                post_detail = analyze_post_detail(info['latest_post_url'])
+            st.subheader("📝 최신글 분석")
+            st.info(f"제목: {info['latest_post_title']}")
             
-            # 분석 결과 표시
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("📅 발행일", post_detail["publish_date"][:10] if len(post_detail["publish_date"]) > 10 else post_detail["publish_date"])
-            col2.metric("📝 글자 수", f"{post_detail['char_count']:,}자")
-            col3.metric("🖼️ 이미지", f"{post_detail['image_count']}장")
-            col4.metric("❤️ 공감", post_detail["like_count"])
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("발행일", detail["publish_date"])
+            c2.metric("글자수", f"{detail['char_count']:,}")
+            c3.metric("이미지", detail["image_count"])
+            c4.metric("공감", detail["like_count"])
             
-            st.caption(f"💬 댓글: {post_detail['comment_count']}개")
+            # 품질 판독
+            warns = []
+            if detail['char_count'] < 1000: warns.append("글자 수 부족 (1,000자 미만)")
+            if detail['image_count'] < 5: warns.append("이미지 부족 (5장 미만)")
+            if not is_within_one_month(detail['publish_date_obj']): warns.append("최근 활동 뜸함")
             
-            # 판독 기준 경고 표시
+            if warns:
+                for w in warns: st.warning(f"⚠️ {w}")
+            else:
+                st.success("✅ 블로그 품질 합격점!")
+                
+            # 검색 노출 (엄격)
             st.divider()
-            st.subheader("� 블로그 품질 판독")
-            
-            warnings = []
-            
-            # 글자 수 체크
-            if post_detail['char_count'] < 1000:
-                warnings.append(("⚠️ 글 내용이 좀 짧아요", f"현재 {post_detail['char_count']:,}자 (권장: 1,000자 이상)"))
-            else:
-                st.success(f"✅ 글 분량 충분 ({post_detail['char_count']:,}자)")
-            
-            # 이미지 개수 체크
-            if post_detail['image_count'] < 5:
-                warnings.append(("⚠️ 사진이 너무 적어요", f"현재 {post_detail['image_count']}장 (권장: 5장 이상)"))
-            else:
-                st.success(f"✅ 이미지 충분 ({post_detail['image_count']}장)")
-            
-            # 활동 주기 체크
-            if post_detail['publish_date_obj']:
-                if not is_within_one_month(post_detail['publish_date_obj']):
-                    warnings.append(("💤 활동이 뜸한 블로거입니다", "최근 1개월 내 글이 없어요"))
+            is_good, msg = check_search_exposure(blog_id, info['latest_post_title'])
+            if is_good:
+                if "최적화" in msg:
+                    st.success(msg)
+                    st.balloons()
                 else:
-                    st.success("✅ 활발히 활동 중인 블로거!")
-            
-            # 경고 표시
-            for title, desc in warnings:
-                st.warning(f"**{title}**\n\n{desc}")
-            
-            # Step 3: 검색 노출 확인
-            st.divider()
-            st.subheader("🔎 검색 노출 판독")
-            
-            with st.spinner("네이버 검색 결과 확인 중..."):
-                is_exposed, msg = check_search_exposure(blog_id, info['latest_post_title'])
-            
-            if is_exposed:
-                st.success(f"✅ **노출 합격!** {msg}")
-                st.caption("👉 이 블로거는 검색 노출이 잘 되는 '건강한 블로그'입니다.")
-                st.balloons()
+                    st.warning(msg)
             else:
-                st.error(f"❌ **노출 실패** - {msg}")
-                st.caption("👉 최신 글이 검색 결과에 안 뜹니다. 저품질이거나 누락된 블로그일 수 있습니다.")
+                st.error(msg)
                 
         else:
-            st.warning("⚠️ 최신 글을 찾지 못했습니다. (비공개거나 블로그 구조가 특이함)")
-
-# 푸터
-st.divider()
-st.caption("🍫 Made with love by VeryGood | v2.0 정밀 분석기")
+            st.warning("최신 글을 찾지 못했습니다.")
