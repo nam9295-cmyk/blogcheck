@@ -11,18 +11,128 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- 1. 페이지 기본 설정 ---
-st.set_page_config(page_title="베리굿 블로그 판독기", page_icon="🍫")
+st.set_page_config(page_title="베리굿 블로그 판독기", page_icon="🍫", layout="wide")
 
-# --- 브랜드 컬러 스타일링 (#edc5c4 인디 핑크) ---
+# --- 하이브리드 UI 스타일링 (Input: Hacker / Output: Designer) ---
 st.markdown("""
 <style>
-    /* 전체 배경 */
+    @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+    
+    /* ===== 전역 설정 ===== */
     .stApp {
-        background: linear-gradient(180deg, #0E1117 0%, #1A1D24 100%);
+        background: linear-gradient(180deg, #0a0a0a 0%, #0E1117 30%, #1A1D24 100%);
     }
     
-    /* 모든 텍스트 색상 - 인디 핑크 */
+    /* Streamlit 기본 요소 숨기기 */
+    #MainMenu, footer, header {visibility: hidden;}
+    .stDeployButton {display: none;}
+    
+    /* ===== 터미널 입력 영역 스타일 ===== */
+    .terminal-header {
+        font-family: 'Courier New', monospace;
+        color: #edc5c4;
+        background: #0a0a0a;
+        border: 1px solid #333;
+        border-radius: 8px 8px 0 0;
+        padding: 8px 15px;
+        margin-bottom: 0;
+        font-size: 0.75rem;
+    }
+    
+    .terminal-header::before {
+        content: "● ● ●";
+        color: #555;
+        margin-right: 15px;
+        letter-spacing: 3px;
+    }
+    
+    .terminal-body {
+        font-family: 'Courier New', monospace;
+        background: #0a0a0a;
+        border: 1px solid #333;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .terminal-log {
+        font-family: 'Courier New', monospace;
+        color: #4a9c6d;
+        font-size: 0.85rem;
+        margin-bottom: 5px;
+        opacity: 0.8;
+    }
+    
+    .terminal-prompt {
+        font-family: 'Courier New', monospace;
+        color: #edc5c4;
+        font-size: 1rem;
+        margin-bottom: 10px;
+    }
+    
+    /* 입력창 - 해커 스타일 */
+    div[data-testid="stForm"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+    }
+    
+    .stTextInput > div > div > input {
+        font-family: 'Courier New', monospace !important;
+        background: transparent !important;
+        border: none !important;
+        border-bottom: 2px solid #edc5c4 !important;
+        border-radius: 0 !important;
+        color: #edc5c4 !important;
+        font-size: 1.1rem !important;
+        padding: 10px 5px !important;
+        caret-color: #edc5c4 !important;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        box-shadow: none !important;
+        border-bottom: 2px solid #fff !important;
+    }
+    
+    .stTextInput > div > div > input::placeholder {
+        color: #666 !important;
+        font-family: 'Courier New', monospace !important;
+    }
+    
+    .stTextInput > label {
+        display: none !important;
+    }
+    
+    /* 제출 버튼 숨기기 */
+    .stFormSubmitButton {
+        display: none !important;
+    }
+    
+    /* 깜빡이는 커서 효과 */
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+    }
+    
+    .cursor-blink {
+        display: inline-block;
+        width: 10px;
+        height: 18px;
+        background: #edc5c4;
+        animation: blink 1s infinite;
+        vertical-align: middle;
+        margin-left: 5px;
+    }
+    
+    /* ===== 결과 영역 - 모던 대시보드 스타일 ===== */
+    .result-section {
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    /* 제목 스타일 */
     h1, h2, h3, h4, h5, h6 {
+        font-family: 'Pretendard', sans-serif !important;
         color: #edc5c4 !important;
         font-weight: 700 !important;
     }
@@ -31,140 +141,272 @@ st.markdown("""
         color: #edc5c4 !important;
     }
     
-    /* 메트릭 카드 스타일 */
+    /* 메트릭 카드 - 프리미엄 스타일 */
     div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, #262730 0%, #1E1E2E 100%);
-        border: 1px solid #edc5c4;
-        border-radius: 12px;
-        padding: 20px 15px;
-        box-shadow: 0 4px 15px rgba(237, 197, 196, 0.15);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        border: 1px solid rgba(237, 197, 196, 0.3);
+        border-radius: 16px;
+        padding: 25px 20px;
+        box-shadow: 0 8px 32px rgba(237, 197, 196, 0.1),
+                    inset 0 1px 0 rgba(255,255,255,0.05);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     div[data-testid="stMetric"]:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 20px rgba(237, 197, 196, 0.25);
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(237, 197, 196, 0.2);
+        border-color: rgba(237, 197, 196, 0.5);
     }
     
     div[data-testid="stMetric"] label {
-        color: #edc5c4 !important;
-        font-size: 0.9rem !important;
+        font-family: 'Pretendard', sans-serif !important;
+        color: rgba(237, 197, 196, 0.7) !important;
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        font-family: 'Pretendard', sans-serif !important;
         color: #edc5c4 !important;
-        font-size: 1.8rem !important;
+        font-size: 2rem !important;
         font-weight: 700 !important;
-    }
-    
-    /* 버튼 스타일 - 인디 핑크 배경, 검정 글씨 */
-    button[kind="primary"], .stButton > button {
-        background: #edc5c4 !important;
-        color: #000000 !important;
-        border: none !important;
-        border-radius: 10px !important;
-        font-weight: 700 !important;
-        font-size: 1.1rem !important;
-        padding: 12px 20px !important;
-        box-shadow: 0 4px 15px rgba(237, 197, 196, 0.4) !important;
-        transition: all 0.3s ease !important;
-    }
-    
-    button[kind="primary"]:hover, .stButton > button:hover {
-        background: #d4a8a7 !important;
-        color: #000000 !important;
-        box-shadow: 0 6px 20px rgba(237, 197, 196, 0.6) !important;
-        transform: translateY(-2px) !important;
-    }
-    
-    /* 인풋 필드 스타일 */
-    input[type="text"] {
-        background-color: #262730 !important;
-        border: 1px solid #edc5c4 !important;
-        border-radius: 8px !important;
-        color: #edc5c4 !important;
-        padding: 12px !important;
-    }
-    
-    input[type="text"]:focus {
-        border-color: #edc5c4 !important;
-        box-shadow: 0 0 0 2px rgba(237, 197, 196, 0.3) !important;
-    }
-    
-    input[type="text"]::placeholder {
-        color: #a08887 !important;
     }
     
     /* 정보 박스 스타일 */
     div[data-testid="stAlert"] {
-        background-color: #1E1E2E !important;
-        border-radius: 10px !important;
+        font-family: 'Pretendard', sans-serif !important;
+        background: linear-gradient(135deg, rgba(26,26,46,0.9) 0%, rgba(22,33,62,0.9) 100%) !important;
+        border-radius: 12px !important;
         border-left: 4px solid #edc5c4 !important;
+        backdrop-filter: blur(10px);
     }
     
     /* 구분선 스타일 */
     hr {
-        border-color: #edc5c4 !important;
-        opacity: 0.3;
+        border: none;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #edc5c4, transparent);
+        margin: 30px 0;
+    }
+    
+    /* 서브헤더 스타일 */
+    .dashboard-header {
+        font-family: 'Pretendard', sans-serif;
+        color: #edc5c4;
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin: 25px 0 15px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .dashboard-header::before {
+        content: "";
+        width: 4px;
+        height: 24px;
+        background: #edc5c4;
+        border-radius: 2px;
     }
     
     /* 성공/경고/에러 메시지 */
-    .stSuccess > div {
-        color: #edc5c4 !important;
+    .stSuccess, .stWarning, .stError, .stInfo {
+        font-family: 'Pretendard', sans-serif !important;
     }
     
-    .stWarning > div {
-        color: #edc5c4 !important;
-    }
-    
-    .stError > div {
-        color: #edc5c4 !important;
-    }
-    
-    /* 스피너 색상 */
+    /* 스피너 */
     .stSpinner > div {
         border-top-color: #edc5c4 !important;
     }
     
-    /* 폼 컨테이너 */
-    div[data-testid="stForm"] {
-        background: #1A1D24;
-        border: 1px solid #edc5c4;
-        border-radius: 15px;
-        padding: 20px;
-    }
-    
-    /* 로고 중앙 정렬 */
-    .logo-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-    
-    /* 제목 줄바꿈 방지 */
-    .main-title {
-        white-space: nowrap;
-        font-size: 2rem !important;
+    /* 분석 중 메시지 */
+    .analyzing-msg {
+        font-family: 'Courier New', monospace;
+        color: #4a9c6d;
+        font-size: 0.9rem;
+        padding: 15px;
+        background: #0a0a0a;
+        border-radius: 8px;
+        border: 1px solid #333;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 로고 및 타이틀 ---
-col1, col2, col3 = st.columns([1, 1, 1])
-with col2:
-    st.image("logo.png", width=200, use_container_width=False)
-
-
+# --- 터미널 UI (CSS로 완전 통합) ---
 st.markdown("""
-<h1 style='text-align: center; color: #edc5c4; font-size: 2.2rem; white-space: nowrap; margin-top: -10px;'>
-베리굿 블로그 판독기
-</h1>
-<p style='text-align: center; color: #edc5c4; margin-top: 10px;'>
-<b>[정밀 분석기]</b> 네이버 블로그 ID를 입력하면<br>
-<b>방문자 수, 최신글 상세 분석, 검색 노출 상태</b>까지 한눈에 볼 수 있어요!
-</p>
+<style>
+    /* ===== 터미널 컨테이너 시뮬레이션 ===== */
+    /* 메인 컨테이너 배경을 터미널처럼 */
+    section[data-testid="stMain"] > div > div > div > div:first-child {
+        background: #0a0a0a;
+        border-radius: 12px;
+        border: 1px solid #444;
+        padding: 0 !important;
+        margin-bottom: 20px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    
+    /* 터미널 헤더 */
+    .term-header {
+        background: linear-gradient(180deg, #3a3a3a 0%, #2a2a2a 100%);
+        padding: 10px 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid #222;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .term-btn {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .term-btn.red { background: #ff5f56; }
+    .term-btn.yellow { background: #ffbd2e; }
+    .term-btn.green { background: #27ca40; }
+    
+    .term-title {
+        font-family: 'Courier New', monospace;
+        color: #888;
+        font-size: 0.8rem;
+        margin-left: 10px;
+    }
+    
+    /* 터미널 로그 영역 */
+    .term-logs {
+        font-family: 'Courier New', monospace;
+        padding: 20px;
+        background: #0a0a0a;
+    }
+    
+    .term-line {
+        color: #4a9c6d;
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+    }
+    
+    .term-divider {
+        color: #edc5c4;
+        opacity: 0.4;
+        margin: 12px 0;
+    }
+    
+    /* 프롬프트 + 입력 영역 */
+    .term-input-area {
+        background: #0a0a0a;
+        padding: 0 20px 20px 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .term-prompt {
+        font-family: 'Courier New', monospace;
+        font-size: 1rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    /* 깜빡이는 블록 커서 */
+    @keyframes cursor-blink {
+        0%, 49% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+    }
+    
+    .cursor-block {
+        display: inline-block;
+        width: 10px;
+        height: 18px;
+        background: #edc5c4;
+        animation: cursor-blink 1s step-end infinite;
+        vertical-align: middle;
+        margin-left: 5px;
+    }
+    
+    /* 폼 스타일 제거 */
+    [data-testid="stForm"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    /* 입력창 - 투명 인라인 */
+    .stTextInput > div > div > input {
+        font-family: 'Courier New', monospace !important;
+        background: #0a0a0a !important;
+        border: none !important;
+        border-bottom: 2px solid #edc5c4 !important;
+        border-radius: 0 !important;
+        color: #edc5c4 !important;
+        font-size: 1rem !important;
+        padding: 8px 5px !important;
+        caret-color: #edc5c4 !important;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        box-shadow: none !important;
+        outline: none !important;
+        border-bottom: 2px solid #fff !important;
+    }
+    
+    .stTextInput > div > div > input::placeholder {
+        color: #666 !important;
+    }
+    
+    .stTextInput > div > div {
+        background: transparent !important;
+        border: none !important;
+    }
+    
+    .stTextInput > div {
+        background: transparent !important;
+    }
+    
+    .stTextInput label {
+        display: none !important;
+    }
+    
+    /* 버튼 숨기기 */
+    .stFormSubmitButton {
+        position: absolute !important;
+        left: -9999px !important;
+    }
+</style>
 """, unsafe_allow_html=True)
+
+# --- 터미널 UI 렌더링 ---
+st.markdown("""
+<div class="term-header">
+    <span class="term-btn red"></span>
+    <span class="term-btn yellow"></span>
+    <span class="term-btn green"></span>
+    <span class="term-title">blog_analyzer.py — zsh — 80×24</span>
+</div>
+<div class="term-logs">
+    <div class="term-line">[INIT] System starting...</div>
+    <div class="term-line">[LOAD] Selenium WebDriver... OK</div>
+    <div class="term-line">[READY] Naver Blog Analyzer v2.1</div>
+    <div class="term-divider">────────────────────────────────────────────────</div>
+</div>
+<div class="term-input-area">
+    <span class="term-prompt">
+        <span style="color:#4a9c6d;">베리굿@analyzer</span><span style="color:#fff;">:</span><span style="color:#5c8fdb;">~</span><span style="color:#fff;">$ </span>
+    </span>
+    <span class="cursor-block"></span>
+</div>
+""", unsafe_allow_html=True)
+
+# 입력 폼 (터미널 아래에 통합)
+with st.form("main_form", clear_on_submit=False):
+    user_input = st.text_input("", placeholder="블로그 ID 입력 후 Enter...", label_visibility="collapsed")
+    submitted = st.form_submit_button("분석", type="primary")
 
 # --- 2. 서버용 강력한 드라이버 설정 ---
 @st.cache_resource
@@ -464,19 +706,30 @@ def extract_blog_id(text):
                 return p
     return text
 
-st.divider()
-
-with st.form("main_form"):
-    user_input = st.text_input("🔍 블로그 ID 또는 주소 입력", placeholder="예: nam9295")
-    submitted = st.form_submit_button("분석 시작 🚀", type="primary", use_container_width=True)
-
+# --- 결과 출력 영역 ---
 if submitted and user_input:
     blog_id = extract_blog_id(user_input)
     
-    with st.spinner(f"'{blog_id}' 정밀 분석 중..."):
+    # 터미널 스타일 분석 시작 메시지
+    st.markdown(f"""
+    <div class="analyzing-msg">
+        <span style="color: #4a9c6d;">[EXEC]</span> Analyzing blog: <span style="color: #edc5c4;">{blog_id}</span><br>
+        <span style="color: #4a9c6d;">[INFO]</span> Fetching visitor data...<br>
+        <span style="color: #4a9c6d;">[INFO]</span> Scanning latest post...<br>
+        <span style="color: #4a9c6d;">[INFO]</span> Checking search exposure...
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.spinner(""):
         info = get_blog_info(blog_id)
         
+        # 구분선
         st.divider()
+        
+        # 결과 헤더
+        st.markdown('<div class="dashboard-header">📊 방문자 통계</div>', unsafe_allow_html=True)
+        
+        # 방문자 메트릭 카드
         c1, c2 = st.columns(2)
         c1.metric("오늘 방문자", info["today_visitors"])
         c2.metric("전체 방문자", info["total_visitors"])
@@ -484,16 +737,18 @@ if submitted and user_input:
         if info['latest_post_url']:
             detail = analyze_post_detail(info['latest_post_url'])
             
-            st.subheader("📝 최신글 분석")
-            st.info(f"제목: {info['latest_post_title']}")
+            st.markdown('<div class="dashboard-header">📝 최신글 분석</div>', unsafe_allow_html=True)
+            st.info(f"**제목:** {info['latest_post_title']}")
             
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("발행일", detail["publish_date"])
             c2.metric("글자수", f"{detail['char_count']:,}")
-            c3.metric("이미지", detail["image_count"])
+            c3.metric("이미지", f"{detail['image_count']}장")
             c4.metric("공감", detail["like_count"])
             
             # 품질 판독
+            st.markdown('<div class="dashboard-header">🔍 품질 진단</div>', unsafe_allow_html=True)
+            
             warns = []
             if detail['char_count'] < 1000: warns.append("글자 수 부족 (1,000자 미만)")
             if detail['image_count'] < 5: warns.append("이미지 부족 (5장 미만)")
@@ -504,8 +759,9 @@ if submitted and user_input:
             else:
                 st.success("✅ 블로그 품질 합격점!")
                 
-            # 검색 노출 (엄격)
-            st.divider()
+            # 검색 노출 결과
+            st.markdown('<div class="dashboard-header">🎯 검색 노출 분석</div>', unsafe_allow_html=True)
+            
             is_good, msg = check_search_exposure(blog_id, info['latest_post_title'])
             if is_good:
                 if "최적화" in msg:
@@ -518,3 +774,11 @@ if submitted and user_input:
                 
         else:
             st.warning("최신 글을 찾지 못했습니다.")
+        
+        # 완료 메시지
+        st.markdown("""
+        <div class="analyzing-msg" style="margin-top: 20px; border-color: #4a9c6d;">
+            <span style="color: #4a9c6d;">[DONE]</span> Analysis completed successfully.<br>
+            <span style="color: #666;">Ready for next query...</span>
+        </div>
+        """, unsafe_allow_html=True)
