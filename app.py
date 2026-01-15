@@ -49,17 +49,27 @@ def parse_visitor_text(text: str) -> tuple:
     return today, total
 
 
-def create_driver():
-    """Selenium WebDriver를 생성합니다. (Headless 모드)"""
+@st.cache_resource
+def get_driver():
+    """
+    Selenium WebDriver를 생성하고 캐싱합니다. (Headless 모드)
+    Streamlit Cloud 환경에서도 동작하도록 예외 처리 포함.
+    """
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # 브라우저 창 없이 백그라운드 실행
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-software-rasterizer")
     chrome_options.add_argument("user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1")
     
-    service = Service(ChromeDriverManager().install())
-    return webdriver.Chrome(service=service, options=chrome_options)
+    try:
+        # 로컬 환경: ChromeDriverManager 사용
+        service = Service(ChromeDriverManager().install())
+        return webdriver.Chrome(service=service, options=chrome_options)
+    except Exception:
+        # Streamlit Cloud 환경: 시스템에 설치된 chromium-driver 사용
+        return webdriver.Chrome(options=chrome_options)
 
 
 def get_blog_info(blog_id: str) -> dict:
@@ -72,7 +82,7 @@ def get_blog_info(blog_id: str) -> dict:
     Returns:
         블로그 정보가 담긴 딕셔너리
     """
-    driver = create_driver()
+    driver = get_driver()
     
     result = {
         "blog_id": blog_id,
@@ -152,9 +162,6 @@ def get_blog_info(blog_id: str) -> dict:
     except Exception as e:
         st.error(f"❌ 오류 발생: {e}")
     
-    finally:
-        driver.quit()
-    
     return result
 
 
@@ -172,7 +179,7 @@ def check_search_exposure(blog_id: str, post_title: str) -> tuple:
     if post_title == "정보를 찾을 수 없음" or not post_title:
         return False, "게시글 제목을 찾을 수 없어 검색할 수 없습니다."
     
-    driver = create_driver()
+    driver = get_driver()
     
     try:
         # 네이버 검색 URL 생성
@@ -252,9 +259,6 @@ def check_search_exposure(blog_id: str, post_title: str) -> tuple:
     
     except Exception as e:
         return False, f"검색 오류: {e}"
-    
-    finally:
-        driver.quit()
 
 
 def display_blog_info(info: dict, exposure_result: tuple = None) -> None:
