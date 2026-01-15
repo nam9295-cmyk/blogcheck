@@ -11,13 +11,160 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- 1. 페이지 기본 설정 ---
-st.set_page_config(page_title="베리굿 블로그 판독기 (엄격버전)", page_icon="🍫")
+st.set_page_config(page_title="베리굿 블로그 판독기", page_icon="🍫")
 
-st.title("🍫 베리굿 블로그 판독기 (엄격버전)")
+# --- 브랜드 컬러 스타일링 (#edc5c4 인디 핑크) ---
 st.markdown("""
-**[정밀 분석기]** 네이버 블로그 ID를 입력하면  
-**방문자 수, 최신글 상세 분석, 검색 노출 상태(엄격)**까지 한눈에 볼 수 있어요!
-""")
+<style>
+    /* 전체 배경 */
+    .stApp {
+        background: linear-gradient(180deg, #0E1117 0%, #1A1D24 100%);
+    }
+    
+    /* 모든 텍스트 색상 - 인디 핑크 */
+    h1, h2, h3, h4, h5, h6 {
+        color: #edc5c4 !important;
+        font-weight: 700 !important;
+    }
+    
+    p, span, label, div {
+        color: #edc5c4 !important;
+    }
+    
+    /* 메트릭 카드 스타일 */
+    div[data-testid="stMetric"] {
+        background: linear-gradient(135deg, #262730 0%, #1E1E2E 100%);
+        border: 1px solid #edc5c4;
+        border-radius: 12px;
+        padding: 20px 15px;
+        box-shadow: 0 4px 15px rgba(237, 197, 196, 0.15);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(237, 197, 196, 0.25);
+    }
+    
+    div[data-testid="stMetric"] label {
+        color: #edc5c4 !important;
+        font-size: 0.9rem !important;
+    }
+    
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        color: #edc5c4 !important;
+        font-size: 1.8rem !important;
+        font-weight: 700 !important;
+    }
+    
+    /* 버튼 스타일 - 인디 핑크 배경, 검정 글씨 */
+    button[kind="primary"], .stButton > button {
+        background: #edc5c4 !important;
+        color: #000000 !important;
+        border: none !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        font-size: 1.1rem !important;
+        padding: 12px 20px !important;
+        box-shadow: 0 4px 15px rgba(237, 197, 196, 0.4) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    button[kind="primary"]:hover, .stButton > button:hover {
+        background: #d4a8a7 !important;
+        color: #000000 !important;
+        box-shadow: 0 6px 20px rgba(237, 197, 196, 0.6) !important;
+        transform: translateY(-2px) !important;
+    }
+    
+    /* 인풋 필드 스타일 */
+    input[type="text"] {
+        background-color: #262730 !important;
+        border: 1px solid #edc5c4 !important;
+        border-radius: 8px !important;
+        color: #edc5c4 !important;
+        padding: 12px !important;
+    }
+    
+    input[type="text"]:focus {
+        border-color: #edc5c4 !important;
+        box-shadow: 0 0 0 2px rgba(237, 197, 196, 0.3) !important;
+    }
+    
+    input[type="text"]::placeholder {
+        color: #a08887 !important;
+    }
+    
+    /* 정보 박스 스타일 */
+    div[data-testid="stAlert"] {
+        background-color: #1E1E2E !important;
+        border-radius: 10px !important;
+        border-left: 4px solid #edc5c4 !important;
+    }
+    
+    /* 구분선 스타일 */
+    hr {
+        border-color: #edc5c4 !important;
+        opacity: 0.3;
+    }
+    
+    /* 성공/경고/에러 메시지 */
+    .stSuccess > div {
+        color: #edc5c4 !important;
+    }
+    
+    .stWarning > div {
+        color: #edc5c4 !important;
+    }
+    
+    .stError > div {
+        color: #edc5c4 !important;
+    }
+    
+    /* 스피너 색상 */
+    .stSpinner > div {
+        border-top-color: #edc5c4 !important;
+    }
+    
+    /* 폼 컨테이너 */
+    div[data-testid="stForm"] {
+        background: #1A1D24;
+        border: 1px solid #edc5c4;
+        border-radius: 15px;
+        padding: 20px;
+    }
+    
+    /* 로고 중앙 정렬 */
+    .logo-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    /* 제목 줄바꿈 방지 */
+    .main-title {
+        white-space: nowrap;
+        font-size: 2rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- 로고 및 타이틀 ---
+col1, col2, col3 = st.columns([1, 1, 1])
+with col2:
+    st.image("logo.png", width=200, use_container_width=False)
+
+
+st.markdown("""
+<h1 style='text-align: center; color: #edc5c4; font-size: 2.2rem; white-space: nowrap; margin-top: -10px;'>
+베리굿 블로그 판독기
+</h1>
+<p style='text-align: center; color: #edc5c4; margin-top: 10px;'>
+<b>[정밀 분석기]</b> 네이버 블로그 ID를 입력하면<br>
+<b>방문자 수, 최신글 상세 분석, 검색 노출 상태</b>까지 한눈에 볼 수 있어요!
+</p>
+""", unsafe_allow_html=True)
 
 # --- 2. 서버용 강력한 드라이버 설정 ---
 @st.cache_resource
