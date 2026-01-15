@@ -189,13 +189,16 @@ def analyze_post_detail(post_url):
         driver.get(post_url)
         time.sleep(3)  # 상세 페이지 로딩 대기
         
-        # 1. 발행 날짜 추출
+        # 1. 발행 날짜 추출 (다양한 에디터 버전 대응)
         date_selectors = [
-            "span[class*='date']",
+            ".se_publishDate",
+            ".blog_date",
             ".date",
+            ".fil5",
+            ".se-date",
+            "span[class*='date']",
             "p[class*='date']",
             "span[class*='_postDate']",
-            ".blog_date",
             "time",
         ]
         
@@ -231,21 +234,37 @@ def analyze_post_detail(post_url):
             except:
                 continue
         
-        # 3. 이미지 개수
+        # 3. 이미지 개수 (순수 본문 이미지만 카운트)
         try:
             images = driver.find_elements(By.CSS_SELECTOR, "img")
-            # 본문 이미지만 카운트 (아이콘 제외)
             valid_images = 0
             for img in images:
                 src = img.get_attribute("src") or ""
-                width = img.get_attribute("width") or "0"
-                # 작은 아이콘 이미지 제외 (100px 이상만)
-                try:
-                    if int(width) >= 100 or "postfiles" in src or "blogfiles" in src:
-                        valid_images += 1
-                except:
-                    if "postfiles" in src or "blogfiles" in src:
-                        valid_images += 1
+                img_class = img.get_attribute("class") or ""
+                
+                # 제외 조건: 스티커, 아이콘, 프로필, 좋아요 아이콘 등
+                skip_keywords_class = ["sticker", "icon", "profile"]
+                skip_keywords_src = ["l.blog.naver"]
+                
+                should_skip = False
+                for keyword in skip_keywords_class:
+                    if keyword in img_class.lower():
+                        should_skip = True
+                        break
+                
+                if not should_skip:
+                    for keyword in skip_keywords_src:
+                        if keyword in src:
+                            should_skip = True
+                            break
+                
+                if should_skip:
+                    continue
+                
+                # 본문 이미지만 카운트 (postfiles 또는 blogfiles 포함)
+                if "postfiles" in src or "blogfiles" in src:
+                    valid_images += 1
+                    
             result["image_count"] = valid_images
         except:
             pass
@@ -323,13 +342,60 @@ def check_search_exposure(blog_id, post_title):
 # --- 7. UI 구성 ---
 st.divider()
 
-blog_id_input = st.text_input("🔍 조회할 블로그 ID", placeholder="예: verygood_choco")
+def extract_blog_id(input_value):
+    """
+    사용자 입력에서 블로그 ID를 추출합니다.
+    - 전체 URL 입력 시: https://blog.naver.com/ID 등에서 ID 추출
+    - ID만 입력 시: 그대로 반환
+    """
+    if not input_value:
+        return ""
+    
+    input_value = input_value.strip()
+    
+    # URL인 경우
+    if "blog.naver.com" in input_value:
+        try:
+            # https://blog.naver.com/myid
+            # https://m.blog.naver.com/myid
+            parsed = urllib.parse.urlparse(input_value)
+            path_parts = parsed.path.split('/')
+            # path가 /myid 또는 /Start.naver 등이 섞여있을 수 있음
+            for part in path_parts:
+                if part and part not in ["PostView.naver", "MyBlog.naver", "Start.naver"]:
+                     # 보통 ID는 영문+숫자 조합이므로 간단한 필터링 가능하지만
+                     # 네이버 블로그 URL 구조상 blog.naver.com/ 바로 뒤가 ID임
+                     # m.blog.naver.com/ID
+                     return part
+        except:
+            pass
+            
+    # 그 외 패턴 (예: https://.../ID/...) 처리 혹은 단순 ID로 간주
+    # 단순하게 마지막 슬래시 뒤를 가져오는 방식 등 보완 가능하나
+    # 일단 'blog.naver.com/' 뒤에 오는 첫번째 경로를 ID로 보는 것이 가장 정확함
+    
+    # URL 파싱이 어렵거나 URL이 아닌 경우 입력값 그대로 반환 (ID만 입력했다고 가정)
+    # 다만 'http'가 포함되어있으면 URL로 의심되므로 정제 시도
+    if input_value.startswith("http"):
+         # 다시 시도: blog.naver.com이 없는데 http로 시작하는 경우? (거의 없음)
+         # 예: https://id.blog.me (구형 도메인) -> 지원 안함
+         pass
 
-if st.button("정밀 분석 시작 🚀", type="primary", use_container_width=True):
+    return input_value
+
+
+with st.form(key='lookup_form'):
+    blog_id_input = st.text_input("🔍 조회할 블로그 ID (또는 블로그 주소)", placeholder="예: verygood_choco 또는 https://blog.naver.com/verygood_choco")
+    
+    # Enter 키로도 제출됨
+    submit_button = st.form_submit_button("정밀 분석 시작 🚀", type="primary", use_container_width=True)
+
+if submit_button:
     if not blog_id_input:
         st.warning("아이디를 입력해주세요!")
     else:
-        blog_id = blog_id_input.strip()
+        # 스마트 추출 적용
+        blog_id = extract_blog_id(blog_id_input)
         
         # Step 1: 블로그 기본 정보 가져오기
         with st.spinner(f"📡 '{blog_id}' 블로그 기본 정보 수집 중..."):
