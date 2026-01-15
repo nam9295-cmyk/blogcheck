@@ -274,11 +274,99 @@ st.markdown("""
         border-radius: 8px;
         border: 1px solid #333;
     }
+    /* 버튼 숨기기 */
+    .stFormSubmitButton {
+        display: none;
+    }
+
+    /* ===== 모바일 반응형 처리 ===== */
+    @media (max-width: 640px) {
+        /* 로고 이미지 크기 강제 축소 및 중앙 정렬 */
+        .stImage, [data-testid="stImage"] {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            margin: 0 auto !important;
+        }
+        
+        .stImage img, [data-testid="stImage"] img {
+            width: 80px !important;       /* 너비 강제 고정 */
+            max-width: 80px !important;   /* 최대 너비도 제한 */
+            object-fit: contain !important;
+            margin: 0 auto !important;
+        }
+        
+        /* 로고 컨테이너 높이 축소 */
+        .logo-container {
+            margin-bottom: 20px !important;
+        }
+        
+        /* 터미널 폰트 약간 축소 */
+        .mac-title { font-size: 0.7rem !important; }
+        .log-line { font-size: 0.8rem !important; }
+        
+        /* 구분선 한 줄로 강제 (넘치면 자름) */
+        .log-divider {
+             white-space: nowrap !important;
+             overflow: hidden !important;
+             text-overflow: clip !important;
+             width: 100% !important;
+             display: block !important;
+             font-size: 0.7rem !important;
+             letter-spacing: -2px !important; /* 자간을 좁혀서 더 많이 들어가게 */
+        }
+        
+        /* 프롬프트 텍스트 모바일 최적화 (왼쪽 정렬) */
+        .prompt-text-mobile {
+            font-size: 0.9rem !important;
+            line-height: normal !important;
+            text-align: left !important;
+            margin-bottom: 20px !important; /* 공간 대폭 확보 */
+            padding-left: 2px !important;
+            display: block !important;
+        }
+        
+        /* 입력창 위치 조정 */
+        .stTextInput {
+            margin-top: 10px !important;
+        }
+        
+        /* 입력창 패딩 및 테두리 (모바일 전용) */
+        .stTextInput > div > div > input {
+            padding-left: 10px !important;
+            border: 1px solid #555 !important;
+            border-radius: 5px !important;
+            background-color: #111 !important;
+        }
+        
+        /* 모바일에서는 전송 버튼 보이기 (입력 스위치) */
+        .stFormSubmitButton, [data-testid="stFormSubmitButton"] {
+            display: block !important;
+            visibility: visible !important;
+            height: auto !important;
+            margin-top: 20px !important;
+        }
+        
+        /* 버튼 스타일 (터치하기 좋게) */
+        .stFormSubmitButton > button {
+            width: 100% !important;
+            background-color: #333 !important;
+            color: #edc5c4 !important;
+            border: 1px solid #edc5c4 !important;
+            border-radius: 5px !important;
+            padding: 0.5rem !important;
+        }
+        
+        .stFormSubmitButton > button:hover {
+            background-color: #edc5c4 !important;
+            color: #000 !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 로고 (가운데 정렬) ---
-_, center_col, _ = st.columns([1.5, 1, 1.5])
+_, center_col, _ = st.columns([1, 2, 1])
 with center_col:
     st.image("logo.png", use_container_width=True)
 
@@ -289,11 +377,11 @@ st.markdown("""
         <span class="mac-btn close"></span>
         <span class="mac-btn minimize"></span>
         <span class="mac-btn maximize"></span>
-        <span class="mac-title">blog_analyzer.py — zsh — 80×24</span>
+        <span class="mac-title">blog check - verygood design</span>
     </div>
     <div class="mac-content">
-        <div class="log-line">[INIT] System starting...</div>
-        <div class="log-line">[LOAD] Selenium WebDriver... OK</div>
+        <div class="log-line">[INIT] very good System starting...</div>
+        <div class="log-line">[LOAD] very good, Creative Cacao.</div>
         <div class="log-line">[READY] Naver Blog Analyzer v2.1</div>
         <div class="log-divider">────────────────────────────────────────</div>
     </div>
@@ -306,14 +394,14 @@ col_prompt, col_input = st.columns([0.25, 0.75], gap="small")
 
 with col_prompt:
     st.markdown("""
-    <div style="font-family: 'Courier New', monospace; font-size: 1rem; line-height: 38px; text-align: right; white-space: nowrap;">
+    <div class="prompt-text-mobile" style="font-family: 'Courier New', monospace; font-size: 1rem; line-height: 40px; text-align: right; white-space: nowrap;">
         <span style="color: #5cb85c;">베리굿</span><span style="color: #edc5c4;">@</span><span style="color: #5cb85c;">analyzer</span><span style="color: #fff;">:</span><span style="color: #5c8fdb;">~</span><span style="color: #fff;">$</span>
     </div>
     """, unsafe_allow_html=True)
 
 with col_input:
     with st.form("main_form", clear_on_submit=False):
-        user_input = st.text_input("", placeholder="블로그 ID 입력...", label_visibility="collapsed")
+        user_input = st.text_input("", placeholder="블로그 ID or URL입력...", label_visibility="collapsed")
         submitted = st.form_submit_button("분석", type="primary")
 
 st.markdown('</div>', unsafe_allow_html=True)
